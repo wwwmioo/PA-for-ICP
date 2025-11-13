@@ -324,13 +324,23 @@ def main():
                 return None
 
         steps = []
-        if args.feature_select == 'l1':
-            l1 = LinearSVC(penalty='l1', dual=False, C=args.l1_C, class_weight='balanced', max_iter=args.l1_max_iter, tol=args.l1_tol, random_state=random_state)
-            steps.append(('sfm', SelectFromModel(estimator=l1, threshold=None)))
+        # 1）先进行sacle
         scaler = RobustScaler() if args.scaler == 'robust' else StandardScaler()
         steps.append(('scaler', scaler))
+
+        # 2）特征选择（L1）
+        selected_feature_names = None
+        if args.feature_select == 'l1':
+            l1 = LinearSVC(penalty='l1', dual=False, C=args.l1_C, class_weight='balanced', max_iter=args.l1_max_iter, tol=args.l1_tol, random_state=random_state)
+
+             # 使用 SelectFromModel；指定 threshold（例如 "median" 或 explicit）
+            steps.append(('sfm', SelectFromModel(estimator=l1, threshold='median')))
+        
+        # 3）PCA降维
         if args.use_pca:
             steps.append(('pca', PCA(n_components=args.pca_components)))
+
+        # 4）分类器或 Dummy
         if len(np.unique(y_train)) < 2:
             const_class = int(np.unique(y_train)[0]) if len(y_train) > 0 else 0
             steps.append(('dummy', DummyClassifier(strategy='constant', constant=const_class)))
@@ -342,8 +352,21 @@ def main():
             except Exception:
                 pass
             steps.append(('svc', SVC(C=args.svc_C, kernel='rbf', gamma=gamma, class_weight=cw, probability=True, cache_size=args.svc_cache_size, random_state=random_state)))
+        
         pipe = Pipeline(steps)
         pipe.fit(X_train, y_train)
+
+        # ---------- 获取被选中特征的名称（如果使用了 SelectFromModel） ----------
+        selected_feature_names = None
+        if args.feature_select == 'l1':
+            # pipeline.named_steps['sfm'] 在 scaler 之后，因此需要取被选中列的 mask
+            sfm = pipe.named_steps.get('sfm', None)
+            if sfm is not None:
+                # support_ 是布尔掩码
+                mask = sfm.get_support()
+                selected_feature_names = [f for f, m in zip(feature_cols, mask) if m]
+        else:
+            selected_feature_names = feature_cols[:]  # 全部特征未筛选时保留完整列表
 
         y_pred_tr = pipe.predict(X_train)
         acc_tr = float(accuracy_score(y_train, y_pred_tr))
@@ -359,6 +382,7 @@ def main():
         model_obj = {
             'pipeline': pipe,
             'feature_cols': feature_cols,
+            'selected_features': selected_feature_names,
             'wavelengths': win,
             'normal_range': [normal_low, normal_high],
             'window_tag': wl_tag,
@@ -488,6 +512,9 @@ def main():
     else:
         print('[WARN] 没有可用的窗口训练结果。')
 
+
+    print(f"[TRAIN] {wl_tag}: 训练集 Acc={acc_tr:.3f}, F1={f1_tr:.3f}")
+    print(f"[TEST] {wl_tag}: 测试集 Acc={acc_te:.3f}, F1={f1_te:.3f}")
 
 if __name__ == '__main__':
     main()
