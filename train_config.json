@@ -1,0 +1,56 @@
+{
+  "features_dir": "/home/wuy/Others",
+  "wavelengths": "all",
+  "window_size": 11,
+  "window_step": 11,
+  "label_mode": "normal_abnormal",
+  "normal_range": [
+    140,
+    190
+  ],
+  "feature_select": "l1",
+  "l1_C": 0.5,
+  "scaler": "robust",
+  "svc_kernel": "rbf",
+  "svc_probability": true,
+  "search_mode": "grid",
+  "grid_scoring": "precision_min",
+  "cv_folds": 3,
+  "n_jobs": -1,
+  "tune_threshold": true,
+  "threshold_scoring": "balanced_accuracy",
+  "thr_folds": 3,
+  "threshold_timeout": 45,
+  "pos_weight": 0.0,
+  "recall_floor_pos": 0.7,
+  "recall_floor_neg": 0.9,
+  "precision_floor": 0.65,
+  "random_state": 42,
+  "timestamp": "20251103_024341",
+  "metrics_summary": {
+    "accuracy": 0.851063829787234,
+    "f1_macro": 0.74393698826313,
+    "recall_pos": 0.46601941747572817,
+    "recall_neg": 0.9591280653950953,
+    "f1_pos": 0.5783132530120482,
+    "recall_macro": 0.7125737414354117,
+    "confusion_matrix": [
+      [
+        352,
+        15
+      ],
+      [
+        55,
+        48
+      ]
+    ]
+  },
+  "files": [
+    "svm_cont_700-900.joblib",
+    "metrics_cont_svm_700-900.json",
+    "predictions_cont_svm_700-900_test.csv",
+    "predictions_cont_svm_700-900_test_roi.csv",
+    "predictions_cont_svm_700-900_train.csv",
+    "predictions_cont_svm_700-900_train_roi.csv"
+  ]
+}

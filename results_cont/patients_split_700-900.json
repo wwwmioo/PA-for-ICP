@@ -1,0 +1,36 @@
+{
+  "train": [
+    "s11_pressure270(1)",
+    "s1_pressure20(0)",
+    "s1_pressure20(2)",
+    "s1_pressure70(1)",
+    "s1_pressure70(3)",
+    "s2_pressure160(1)",
+    "s2_pressure160(2)",
+    "s2_pressure190(1)",
+    "s2_pressure80(2)"
+  ],
+  "test": [
+    "s1_pressure40(1)",
+    "s1_pressure40(2)",
+    "s1_pressure70(2)",
+    "s2_pressure170(2)",
+    "s2_pressure190(2)"
+  ],
+  "patients": [
+    "s11_pressure270(1)",
+    "s1_pressure20(0)",
+    "s1_pressure20(2)",
+    "s1_pressure40(1)",
+    "s1_pressure40(2)",
+    "s1_pressure70(1)",
+    "s1_pressure70(2)",
+    "s1_pressure70(3)",
+    "s2_pressure160(1)",
+    "s2_pressure160(2)",
+    "s2_pressure170(2)",
+    "s2_pressure190(1)",
+    "s2_pressure190(2)",
+    "s2_pressure80(2)"
+  ]
+}
