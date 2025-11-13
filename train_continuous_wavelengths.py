@@ -15,6 +15,7 @@ from sklearn.svm import SVC, LinearSVC
 from sklearn.dummy import DummyClassifier
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, RandomizedSearchCV
 import gc
 from sklearn.feature_selection import SelectFromModel
 
@@ -188,7 +189,7 @@ def main():
     ap.add_argument('--scaler', default='standard', choices=['standard','robust'])
     ap.add_argument('--feature-select', default='none', choices=['none','l1'])
     ap.add_argument('--l1-C', type=float, default=0.5)
-    ap.add_argument('--l1-max-iter', type=int, default=5000)
+    ap.add_argument('--l1-max-iter', type=int, default=5000)#5000
     ap.add_argument('--l1-tol', type=float, default=1e-4)
     ap.add_argument('--svc-C', type=float, default=1.0)
     ap.add_argument('--svc-gamma', default='scale')
@@ -354,13 +355,44 @@ def main():
             steps.append(('svc', SVC(C=args.svc_C, kernel='rbf', gamma=gamma, class_weight=cw, probability=True, cache_size=args.svc_cache_size, random_state=random_state)))
         
         pipe = Pipeline(steps)
-        pipe.fit(X_train, y_train)
+
+        # 定义超参数搜索空间
+        param_grid = {
+            'svc__C': [0.1, 0.5, 1.0, 5.0],
+            'svc__gamma': ['scale', 0.01, 0.1, 1],
+            # 可选：如果使用 L1 特征选择，可以调节 threshold
+            # 'sfm__threshold': ['median', 'mean']
+        }
+
+        grid = GridSearchCV(pipe, param_grid, cv=5, scoring='f1_macro', n_jobs=-1, verbose=2)
+        grid.fit(X_train, y_train)
+
+        print("最佳参数：", grid.best_params_)
+        print("最佳 CV F1：", grid.best_score_)
+
+        # 用最佳参数训练最终模型
+        best_pipe = grid.best_estimator_
+        best_pipe.fit(X_train, y_train)
+        print(best_pipe)
+
+        #pipe.fit(X_train, y_train)
+
+        y_pred_tr = best_pipe.predict(X_train)
+        acc_tr = float(accuracy_score(y_train, y_pred_tr))
+        f1_tr = float(f1_score(y_train, y_pred_tr, average='macro'))
+        cm_tr = confusion_matrix(y_train, y_pred_tr).tolist()
+
+        y_pred_te = best_pipe.predict(X_test)
+        acc_te = float(accuracy_score(y_test, y_pred_te))
+        f1_te = float(f1_score(y_test, y_pred_te, average='macro'))
+        cm_te = confusion_matrix(y_test, y_pred_te).tolist()
+        report_te = classification_report(y_test, y_pred_te, output_dict=True, zero_division=0)
 
         # ---------- 获取被选中特征的名称（如果使用了 SelectFromModel） ----------
         selected_feature_names = None
         if args.feature_select == 'l1':
             # pipeline.named_steps['sfm'] 在 scaler 之后，因此需要取被选中列的 mask
-            sfm = pipe.named_steps.get('sfm', None)
+            sfm = best_pipe.named_steps.get('sfm', None)
             if sfm is not None:
                 # support_ 是布尔掩码
                 mask = sfm.get_support()
@@ -368,19 +400,8 @@ def main():
         else:
             selected_feature_names = feature_cols[:]  # 全部特征未筛选时保留完整列表
 
-        y_pred_tr = pipe.predict(X_train)
-        acc_tr = float(accuracy_score(y_train, y_pred_tr))
-        f1_tr = float(f1_score(y_train, y_pred_tr, average='macro'))
-        cm_tr = confusion_matrix(y_train, y_pred_tr).tolist()
-
-        y_pred_te = pipe.predict(X_test)
-        acc_te = float(accuracy_score(y_test, y_pred_te))
-        f1_te = float(f1_score(y_test, y_pred_te, average='macro'))
-        cm_te = confusion_matrix(y_test, y_pred_te).tolist()
-        report_te = classification_report(y_test, y_pred_te, output_dict=True, zero_division=0)
-
         model_obj = {
-            'pipeline': pipe,
+            'pipeline': best_pipe,
             'feature_cols': feature_cols,
             'selected_features': selected_feature_names,
             'wavelengths': win,
@@ -425,8 +446,8 @@ def main():
             pos_prob_name = 'prob_high' if label_mode == 'high_low' else 'prob_normal'
             neg_prob_name = 'prob_low' if label_mode == 'high_low' else 'prob_abnormal'
             try:
-                proba = pipe.predict_proba(X)
-                classes = list(pipe.classes_) if hasattr(pipe, 'classes') else [0, 1]
+                proba = best_pipe.predict_proba(X)
+                classes = list(best_pipe.classes_) if hasattr(best_pipe, 'classes') else [0, 1]
                 idx_pos = classes.index(1) if 1 in classes else 1
                 idx_neg = classes.index(0) if 0 in classes else 0
                 p_pos_each = [float(proba[i, idx_pos]) for i in range(proba.shape[0])]
@@ -434,7 +455,7 @@ def main():
             except Exception:
                 p_pos_each = [None] * len(y_gt_each)
                 p_neg_each = [None] * len(y_gt_each)
-            y_pred_each = pipe.predict(X)
+            y_pred_each = best_pipe.predict(X)
             rows_out = []
             for i in range(len(y_pred_each)):
                 pred_label = pos_name if int(y_pred_each[i]) == 1 else neg_name
